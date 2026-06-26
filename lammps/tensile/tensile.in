@@ -1,0 +1,44 @@
+# ─── Tensile testing ──────────────────────────────────────────────────────────
+
+units           lj
+atom_style      bond
+boundary        p p p
+
+pair_style      lj/cut 2.5
+bond_style      fene
+
+read_data       /home/krutarth0911/biomechanical-fingerprinting/lammps/equil/gel_equil.data
+
+pair_coeff      * * 1.0 1.0 2.5
+bond_coeff      1 30.0 1.5 1.0 1.0
+bond_coeff      2 30.0 1.5 1.0 1.0
+
+special_bonds   fene
+
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes
+timestep        0.001
+
+# ─── Stress ──────────────────────────────────────────────────────────────────
+compute         myStress all stress/atom NULL
+compute         myPress all reduce sum c_myStress[1] c_myStress[2] c_myStress[3]
+
+variable        Lx0 equal $(lx)
+variable        V0  equal $(vol)
+variable        lambda equal lx/v_Lx0
+variable        sigmaxx equal -c_myPress[1]/v_V0
+
+thermo          2000
+thermo_style    custom step v_lambda v_sigmaxx temp
+
+fix             out all print 200 "${lambda} ${sigmaxx}" &
+                file /home/krutarth0911/biomechanical-fingerprinting/lammps/tensile/stress_stretch.txt &
+                screen no title "lambda sigmaxx"
+
+# ─── Low temperature + fast deformation ──────────────────────────────────────
+fix             1 all nvt temp 0.1 0.1 0.5
+fix             2 all deform 1 x erate 1e-3 units box remap x
+
+run             300000
+
+print "Tensile test complete"

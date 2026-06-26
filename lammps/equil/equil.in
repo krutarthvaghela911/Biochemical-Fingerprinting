@@ -1,0 +1,44 @@
+# ─── Equilibration of polymer gel network ────────────────────────────────────
+
+units           lj
+atom_style      bond
+boundary        p p p
+
+read_data       /home/krutarth0911/biomechanical-fingerprinting/lammps/build/gel.data
+
+# ─── Force field ─────────────────────────────────────────────────────────────
+pair_style      lj/cut 2.5
+pair_coeff      * * 1.0 1.0 2.5
+
+bond_style      fene
+bond_coeff      1 30.0 1.5 1.0 1.0
+bond_coeff      2 30.0 1.5 1.0 1.0
+
+special_bonds   fene
+
+# ─── Settings ────────────────────────────────────────────────────────────────
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes
+
+timestep        0.001
+
+thermo          1000
+thermo_style    custom step temp press etotal
+
+# ─── Minimise first ──────────────────────────────────────────────────────────
+minimize        1.0e-4 1.0e-6 5000 50000
+
+# ─── Equilibrate ─────────────────────────────────────────────────────────────
+velocity        all create 1.0 12345 dist gaussian
+
+fix             1 all nvt temp 1.0 1.0 1.0
+run             20000
+unfix           1
+
+# ─── Save ────────────────────────────────────────────────────────────────────
+write_data      /home/krutarth0911/biomechanical-fingerprinting/lammps/equil/gel_equil.data
+dump myDump all atom 1 /home/krutarth0911/biomechanical-fingerprinting/lammps/equil/equil_final.lammpstrj
+run 0
+undump myDump
+
+print "Equilibration complete"
