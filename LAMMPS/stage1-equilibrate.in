@@ -1,0 +1,49 @@
+# ============================================================
+# Stage 1 -- Setup and Equilibration of the Coarse-Grained Gel
+# ============================================================
+
+# ---- Basic settings ----
+units lj
+dimension 3
+boundary p p p
+atom_style bond
+
+# ---- Read in the structure we generated in Python ----
+read_data gel.data
+
+# ---- Define interactions ----
+# Non-bonded interaction between ALL beads (prevents overlap)
+pair_style lj/cut 1.5
+pair_coeff 1 1 1.0 1.0 1.5
+
+# Bonded interaction along chains (backbone) -- FENE bond
+bond_style fene
+bond_coeff 1 30.0 1.5 1.0 1.0
+bond_coeff 2 30.0 1.5 1.0 1.0
+
+# ---- Simulation settings ----
+neighbor 0.4 bin
+neigh_modify every 1 delay 1 check yes
+
+velocity all create 1.0 12345
+
+# ---- Relax the randomly-generated structure first ----
+# A fresh random-walk structure usually has some overlapping beads
+# and overstretched bonds. We minimize energy first so dynamics
+# doesn't explode at step 0.
+minimize 1.0e-4 1.0e-6 1000 10000
+
+# ---- Equilibration: NPT ensemble ----
+fix 1 all npt temp 1.0 1.0 1.0 iso 0.0 0.0 5.0
+
+# ---- Output settings ----
+thermo 500
+thermo_style custom step temp press pe ke etotal
+
+dump 1 all atom 1000 equilibration.dump
+
+# ---- Run the equilibration ----
+timestep 0.005
+run 20000
+
+write_data gel_equilibrated.data
