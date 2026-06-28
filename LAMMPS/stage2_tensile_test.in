@@ -1,0 +1,75 @@
+# ============================================================
+# Stage 2 -- Tensile Test on the Equilibrated Gel
+# ============================================================
+
+units lj
+dimension 3
+boundary p p p
+atom_style bond
+
+# ---- Define styles BEFORE reading data (data file contains
+#      embedded Pair Coeffs / Bond Coeffs sections that need
+#      the style already declared) ----
+pair_style lj/cut 1.5
+bond_style fene
+
+# ---- Start from the settled structure, NOT the raw random one ----
+read_data gel_equilibrated.data
+
+# ---- Same interaction coefficients as Stage 1 ----
+pair_coeff 1 1 1.0 1.0 1.5
+
+bond_coeff 1 30.0 1.5 1.0 1.0
+bond_coeff 2 30.0 1.5 1.0 1.0
+
+neighbor 0.4 bin
+neigh_modify every 1 delay 1 check yes
+
+# ---- Keep temperature controlled during stretching ----
+# NVT here, not NPT -- we are now DRIVING the box size ourselves
+# via fix deform, so we don't want a barostat also trying to
+# control pressure/volume at the same time (they would fight).
+fix 1 all nvt temp 1.0 1.0 1.0
+
+# ---- THE TENSILE TEST ----
+# Stretch the box in x by 50% over the run.
+# IMPORTANT: erate is in units of 1/TIME, not 1/timestep.
+# total_strain = erate * (timestep * n_steps)
+# We want total_strain = 0.5 over 50000 steps at timestep=0.005:
+#   erate = 0.5 / (0.005 * 50000) = 0.002
+# y and z are allowed to shrink freely (like a real stretched
+# rubber sample getting thinner) -- this is "uniaxial tension".
+fix 2 all deform 1 x erate 0.001 y volume z volume remap x
+
+# ---- Measure stress (the virial stress tensor) ----
+# Split into BOND contribution and PAIR (LJ repulsion) contribution
+# separately, as a diagnostic -- we suspect LJ repulsion between
+# densely-packed beads may be dominating over actual bond stretching,
+# which would explain why we see immediate stiffening with no soft
+# "toe region" regardless of chain length/crosslink spacing changes.
+compute stressBond all stress/atom NULL bond
+compute stressPair all stress/atom NULL pair
+compute stressBondTotal all reduce sum c_stressBond[1]
+compute stressPairTotal all reduce sum c_stressPair[1]
+
+variable boxlen equal "lx"
+variable stress_bond equal "(c_stressBondTotal)/(lx*ly*lz)"
+variable stress_pair equal "(c_stressPairTotal)/(lx*ly*lz)"
+variable stress_xx equal "v_stress_bond + v_stress_pair"
+
+# ---- Output: AVERAGED stretch and stress, not instantaneous ----
+# A single timestep's stress is dominated by thermal noise (beads
+# jiggling around due to temperature). We average over a window of
+# 100 steps every time we record, which smooths out that noise and
+# reveals the real underlying mechanical trend.
+thermo 500
+thermo_style custom step temp v_boxlen v_stress_bond v_stress_pair v_stress_xx
+
+fix ave1 all ave/time 10 100 1000 v_boxlen v_stress_bond v_stress_pair v_stress_xx file tensile_test.txt
+
+dump 1 all atom 2000 tensile.dump
+
+timestep 0.005
+run 100000
+
+write_data gel_stretched.data
