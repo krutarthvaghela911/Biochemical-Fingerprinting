@@ -32,17 +32,17 @@ sig_fit = demiray(lam_fit, a_fit, b_fit)
 # ------------------------------------------------------------------
 gel_data = np.loadtxt(r"C:\Users\kvgir\OneDrive\Desktop\SOC Dynamo\tensile_test.txt", skiprows=2)
 boxlen = gel_data[:, 1]
-stress_lj = gel_data[:, 4]   # stress_xx (bond + pair combined)
+stress_lj_full = gel_data[:, 4]   # stress_xx (bond + pair combined)
 lam_gel_full = boxlen / boxlen[0]
 
 # Only keep gel points within the real tissue's stretch range, so
 # the comparison stays meaningful (no extrapolation past real data)
 mask = lam_gel_full <= lam_max
 lam_gel = lam_gel_full[mask]
-stress_lj = stress_lj[mask]
+stress_lj = stress_lj_full[mask]
 
 # ------------------------------------------------------------------
-# Step 4: Scale our gel's LJ-unit stress into kPa for direct overlay
+# Step 4a: Scale our gel's LJ-unit stress into kPa for direct overlay
 # ------------------------------------------------------------------
 # Our simulation uses abstract Lennard-Jones units, not real kPa.
 # To overlay on the same axes as the real tissue, we scale our gel's
@@ -51,6 +51,24 @@ stress_lj = stress_lj[mask]
 # arbitrary; only the relative SHAPE is physically meaningful).
 scale = (sig_tissue.max() - sig_tissue.min()) / (stress_lj.max() - stress_lj.min())
 sig_gel_kpa = (stress_lj - stress_lj.min()) * scale + sig_tissue.min()
+
+# ------------------------------------------------------------------
+# Step 4b: Quantitative shape correlation (for the report/slide)
+# ------------------------------------------------------------------
+def normalise(y):
+    return (y - y.min()) / (y.max() - y.min())
+
+# use the FULL unmasked gel data, not the lam_max-restricted version
+lam_corr = np.linspace(1.0, lam_gel_full.max(), 200)
+sig_corr_fit = demiray(lam_corr, a_fit, b_fit)
+
+gel_norm = normalise(stress_lj_full)
+fit_norm = normalise(sig_corr_fit)
+
+gel_interp = np.interp(lam_corr, lam_gel_full, gel_norm)
+correlation = np.corrcoef(gel_interp, fit_norm)[0, 1]
+
+print(f"Shape correlation (gel vs Demiray fingerprint): {correlation:.4f}")
 
 # ------------------------------------------------------------------
 # Step 5: Plot -- same style as the reference figure
