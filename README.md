@@ -235,20 +235,20 @@ where
 Simulation stress is converted into physical units using
 
 \[
-\sigma_{kPa}
+$\sigma_{kPa}$
 =
-\sigma_{LJ}
+$\sigma_{LJ}
 \times
 \frac{k_BT}{\sigma_m^3}
 \times
-10^{-3}
+10^{-3}$
 \]
 
 The bead size was obtained from shear modulus matching
 
 \[
-G_{LJ}
-\frac{k_BT}{\sigma_m^3}
+$G_{LJ}
+\frac{k_BT}{\sigma_m^3}$
 =
 G_{tissue}
 \approx
@@ -258,7 +258,7 @@ G_{tissue}
 giving
 
 \[
-\sigma_m
+$\sigma_m
 =
 \left(
 \frac{4.13\times4.28\times10^{-21}}
